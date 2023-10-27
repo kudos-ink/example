@@ -12,24 +12,52 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - name: Check for "payment" label
+        id: check_label
+        run: |
+          issue_labels=$(jq -r '.issue.labels[].name' $GITHUB_EVENT_PATH)
+          echo "::set-output name=has_payment_label::false"
+
+          for label in $issue_labels; do
+            if [ "$label" == "payment" ]; then
+              echo "::set-output name=has_payment_label::true"
+              break
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
       - name: Get PR and Workflow Info
         id: pr_info
+        if: steps.check_label.outputs.has_payment_label == 'true'
         run: |
-          # Get the pull request number from the issue
           pr_number=$(jq -r '.issue.pull_request.url' $GITHUB_EVENT_PATH | awk -F/ '{print $NF}')
-          
-          # Get the user assigned to the PR
           assignee=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" | jq -r '.assignee.login')
-
-          # Get the SHA of the workflow run
           workflow_sha=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}" | jq -r '.head_sha')
-
           echo "::set-output name=assignee::$assignee"
           echo "::set-output name=workflow_sha::$workflow_sha"
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Display PR Info
+      - name: Check Assigned User
+        id: check_assignee
+        if: steps.check_label.outputs.has_payment_label == 'true'
         run: |
           echo "Assigned User: ${{ steps.pr_info.outputs.assignee }}"
-          echo "Workflow SHA: ${{ steps.pr_info.outputs.workflow_sha }}"
+        continue-on-error: true
+
+      - name: Call contract
+        id: approve
+        uses: kudos-ink/approve@c97d2cc6d6d550b7a0a030253b4cec15acdbcd1f
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.check_assignee.outputs.assignee != 'null'
+        with:
+          ws-provider-url: ${{ vars.WS_PROVIDER_URL }}
+          mnemonic-phrase: ${{ secrets.MNEMONIC_PHRASE }}
+          contract-address: ${{ vars.CONTRACT_ADDRESS }}
+          contract-abi: ${{ vars.ABI }}
+          contribution-id: 1
+          contributor-identity: 0
+
+      - name: Print Output
+        id: output
+        run: echo "${{ steps.approve.outputs.hash }}"
