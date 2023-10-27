@@ -27,36 +27,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Get PR and Workflow Info
+      - name: Get PR assignee
         id: pr_info
         if: steps.check_label.outputs.has_payment_label == 'true'
         run: |
           pr_number=$(jq -r '.issue.pull_request.url' $GITHUB_EVENT_PATH | awk -F/ '{print $NF}')
           assignee=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" | jq -r '.assignee.login')
-          workflow_sha=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}" | jq -r '.head_sha')
           echo "::set-output name=assignee::$assignee"
-          echo "::set-output name=workflow_sha::$workflow_sha"
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Check Assigned User
-        id: check_assignee
+      - name: Hash Assigned User
+        id: assignee
         if: steps.check_label.outputs.has_payment_label == 'true'
         run: |
-          echo "Assigned User: ${{ steps.pr_info.outputs.assignee }}"
-        continue-on-error: true
+          hash=$(echo -n ${{ steps.pr_info.outputs.assignee }} | sha256sum | awk '{print $1}')
+          echo "::set-output name=hash::$hash"
 
       - name: Call contract
         id: approve
-        uses: kudos-ink/approve@c97d2cc6d6d550b7a0a030253b4cec15acdbcd1f
+        uses: kudos-ink/approve@059499ebc582013b4b354d7b0d04541025a52ec8
         if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.check_assignee.outputs.assignee != 'null'
         with:
           ws-provider-url: ${{ vars.WS_PROVIDER_URL }}
           mnemonic-phrase: ${{ secrets.MNEMONIC_PHRASE }}
           contract-address: ${{ vars.CONTRACT_ADDRESS }}
           contract-abi: ${{ vars.ABI }}
-          contribution-id: 1
-          contributor-identity: 0
+          contribution-id: ${{ github.event.issue.id }}
+          contributor-identity: ${{ steps.assignee.outputs.hash }}
 
       - name: Print Output
         id: output
