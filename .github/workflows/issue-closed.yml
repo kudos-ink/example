@@ -1,0 +1,35 @@
+name: Issue Closed Event
+
+on:
+  issues:
+    types:
+      - closed
+
+jobs:
+  process_issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Get PR and Workflow Info
+        id: pr_info
+        run: |
+          # Get the pull request number from the issue
+          pr_number=$(jq -r '.issue.pull_request.url' $GITHUB_EVENT_PATH | awk -F/ '{print $NF}')
+          
+          # Get the user assigned to the PR
+          assignee=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" | jq -r '.assignee.login')
+
+          # Get the SHA of the workflow run
+          workflow_sha=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}" | jq -r '.head_sha')
+
+          echo "::set-output name=assignee::$assignee"
+          echo "::set-output name=workflow_sha::$workflow_sha"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Display PR Info
+        run: |
+          echo "Assigned User: ${{ steps.pr_info.outputs.assignee }}"
+          echo "Workflow SHA: ${{ steps.pr_info.outputs.workflow_sha }}"
