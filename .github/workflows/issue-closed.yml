@@ -42,7 +42,8 @@ jobs:
         if: steps.check_label.outputs.has_payment_label == 'true'
         run: |
           hash=$(echo -n ${{ steps.pr_info.outputs.assignee }} | sha256sum | awk '{print $1}')
-          echo "::set-output name=hash::$hash"
+          hex=0x$hash
+          echo "::set-output name=hash::$hex"
 
       - name: Call contract
         id: approve
@@ -53,8 +54,8 @@ jobs:
           mnemonic-phrase: ${{ secrets.MNEMONIC_PHRASE }}
           contract-address: ${{ vars.CONTRACT_ADDRESS }}
           contract-abi: ${{ vars.ABI }}
-          contribution-id: 1
-          contributor-identity: "0xf95dbf696b6a17df2af2d44264fa9bd47edadf2976091de67ba1dd5dd04e2033"
+          contribution-id: ${{ github.event.issue.id }}
+          contributor-identity: ${{ steps.assignee.outputs.hash }}
 
       - name: Print Output
         id: output
