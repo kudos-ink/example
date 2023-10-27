@@ -49,7 +49,7 @@ jobs:
       - name: Call contract
         id: approve
         uses: kudos-ink/approve@c97d2cc6d6d550b7a0a030253b4cec15acdbcd1f
-        if: steps.check_label.outputs.has_payment_label == 'true' && steps.check_assignee.outputs.assignee != 'null'
+        if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.check_assignee.outputs.assignee != 'null'
         with:
           ws-provider-url: ${{ vars.WS_PROVIDER_URL }}
           mnemonic-phrase: ${{ secrets.MNEMONIC_PHRASE }}
