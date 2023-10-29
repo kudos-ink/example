@@ -2,6 +2,10 @@
 
 This workflow will help you as an example when you want to integrate `Kudos ink!` in your repository. This workflow describes a simple case when the assignee of the issue will be "approved" to claim a reward in the smart contract as soon as the issue is closed. You can customize it and create more advanced workflows.
 
+## Approve action
+
+The workflow must include this custom GitHub Action that will call the **approve** method of the contract. More information about the action [here](https://github.com/kudos-ink/approve)
+
 ## Prerequisites
 
 ### Organization
