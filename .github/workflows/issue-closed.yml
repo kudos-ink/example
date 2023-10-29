@@ -40,6 +40,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
+      - name: Get Issue Assignee
+        id: get_assignee
+        run: |
+          issue_assignee="${{ github.event.issue.assignee.login }}"
+          echo "::set-output name=assignee::${issue_assignee}"
+          
       - name: Hash Assigned User
         id: assignee
         if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.pr_info.outputs.assignee != 'null'
