@@ -27,28 +27,40 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Get PR assignee
-        id: pr_info
-        if: steps.check_label.outputs.has_payment_label == 'true'
+      - name: Check if Issue has Associated PR
+        if: steps.check_label.outputs.has_payment_label == 'true' 
+        id: check_pr
         run: |
-          pr_number=$(jq -r '.issue.pull_request.url' $GITHUB_EVENT_PATH | awk -F/ '{print $NF}')
-          assignee=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" | jq -r '.assignee.login')
-          echo "::set-output name=assignee::$assignee"
+          if [ "${{ github.event.issue.pull_request.html_url }}" == "null" ]; then
+            echo "Issue is not associated with a pull request. Will not close the issue."
+            exit 1
+          fi
+        continue-on-error: true
+
+      - name: Get PR Information
+        id: get_pr_info
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.check_pr.outcome == 'success'
+        run: |
+          pr_url="${{ github.event.issue.pull_request.url }}"
+          pr_state=$(curl -s -H "Authorization: Bearer $GH_TOKEN" $pr_url | jq -r '.state')
+          pr_assignee=$(curl -s -H "Authorization: Bearer $GH_TOKEN" $pr_url | jq -r '.assignee.login')
+          echo "::set-output name=pr_state::${pr_state}"
+          echo "::set-output name=pr_assignee::${pr_assignee}"
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Hash Assigned User
+      - name: Close Issue if Conditions Met
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.get_pr_info.outputs.pr_state == 'closed' && steps.get_pr_info.outputs.pr_assignee != 'null'
         id: assignee
-        if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.pr_info.outputs.assignee != 'null'
         run: |
-          hash=$(echo -n ${{ steps.pr_info.outputs.assignee }} | sha256sum | awk '{print $1}')
+          hash=$(echo -n ${{ steps.get_pr_info.outputs.assignee }} | sha256sum | awk '{print $1}')
           hex=0x$hash
           echo "::set-output name=hash::$hex"
 
       - name: Call contract
         id: approve
         uses: kudos-ink/approve@059499ebc582013b4b354d7b0d04541025a52ec8
-        if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.pr_info.outputs.assignee != 'null'
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.get_pr_info.outputs.pr_state == 'closed' && steps.get_pr_info.outputs.pr_assignee != 'null'
         with:
           ws-provider-url: ${{ vars.WS_PROVIDER_URL }}
           mnemonic-phrase: ${{ secrets.MNEMONIC_PHRASE }}
@@ -59,5 +71,5 @@ jobs:
 
       - name: Print Output
         id: output
-        if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.pr_info.outputs.assignee != 'null'
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.get_pr_info.outputs.pr_state == 'closed' && steps.get_pr_info.outputs.pr_assignee != 'null'
         run: echo "${{ steps.approve.outputs.hash }}"
