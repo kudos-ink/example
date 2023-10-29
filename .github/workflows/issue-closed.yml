@@ -27,37 +27,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Get PR assignee
-        id: pr_info
-        if: steps.check_label.outputs.has_payment_label == 'true'
-        run: |
-          pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          cat $GITHUB_EVENT_PATH
-          echo $pr_number
-          assignee=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" | jq -r '.assignee.login')
-          echo $assignee
-          echo "::set-output name=assignee::$assignee"
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
       - name: Get Issue Assignee
         id: get_assignee
         run: |
           issue_assignee="${{ github.event.issue.assignee.login }}"
           echo "::set-output name=assignee::${issue_assignee}"
-          
+
       - name: Hash Assigned User
         id: assignee
-        if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.pr_info.outputs.assignee != 'null'
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.get_assignee.outputs.assignee != 'null'
         run: |
-          hash=$(echo -n ${{ steps.pr_info.outputs.assignee }} | sha256sum | awk '{print $1}')
+          hash=$(echo -n ${{ steps.get_assignee.outputs.assignee }} | sha256sum | awk '{print $1}')
           hex=0x$hash
           echo "::set-output name=hash::$hex"
 
       - name: Call contract
         id: approve
         uses: kudos-ink/approve@059499ebc582013b4b354d7b0d04541025a52ec8
-        if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.pr_info.outputs.assignee != 'null'
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.pr_info.outputs.assignee != 'null'
         with:
           ws-provider-url: ${{ vars.WS_PROVIDER_URL }}
           mnemonic-phrase: ${{ secrets.MNEMONIC_PHRASE }}
@@ -68,5 +55,5 @@ jobs:
 
       - name: Print Output
         id: output
-        if: steps.check_label.outputs.has_payment_label == 'true' #&& steps.pr_info.outputs.assignee != 'null'
+        if: steps.check_label.outputs.has_payment_label == 'true' && steps.get_assignee.outputs.assignee != 'null'
         run: echo "${{ steps.approve.outputs.hash }}"
