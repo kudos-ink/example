@@ -31,7 +31,7 @@ jobs:
         id: pr_info
         if: steps.check_label.outputs.has_payment_label == 'true'
         run: |
-          pr_number=$(jq -r '.issue.pull_request.url' $GITHUB_EVENT_PATH | awk -F/ '{print $NF}')
+          pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
           echo $pr_number
           assignee=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" | jq -r '.assignee.login')
           echo $assignee
