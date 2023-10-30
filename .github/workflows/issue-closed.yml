@@ -56,4 +56,7 @@ jobs:
       - name: Print Output
         id: output
         if: steps.check_label.outputs.has_payment_label == 'true' && steps.get_assignee.outputs.assignee != 'null'
-        run: echo "${{ steps.approve.outputs.hash }}"
+        run: |
+          echo "${{ steps.approve.outputs.hash }}"
+          echo "${{ steps.approve.outputs.block }}"
+          echo "${{ github.event.issue.id }}"
