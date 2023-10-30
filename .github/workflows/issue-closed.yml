@@ -59,4 +59,4 @@ jobs:
         run: |
           echo "${{ steps.approve.outputs.hash }}"
           echo "${{ steps.approve.outputs.block }}"
-          echo "${{ github.event.issue.id }}"
+          echo "${{ github.event.issue }}"
